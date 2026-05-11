@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sarsRS | Monochrome Bio</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* === CSS VARIABLES === */
+        :root {
+            --bg: #030303;
+            --fg: #e2e8f0;
+            --white: #ffffff;
+            --gray-light: #aaaaaa;
+            --gray-dark: #333333;
+            --card-bg: rgba(15, 15, 20, 0.4);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none !important; }
+        html { scroll-behavior: smooth; }
+        
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg); color: var(--fg);
+            overflow: hidden; 
+        }
+
+        ::-webkit-scrollbar { display: none; } 
+
+        /* === MÀN HÌNH CHỜ (ENTER SCREEN) === */
+        #enter-screen {
+            position: fixed; inset: 0; background: #000000; z-index: 100000;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; letter-spacing: 2px;
+            color: var(--white); transition: opacity 0.8s ease, visibility 0.8s ease;
+        }
+        .blink-text { animation: pulseText 1.5s infinite; font-weight: bold; }
+
+        /* Lưới nền chung */
+        body::before {
+            content: ''; position: fixed; inset: 0;
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), 
+                              linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px; pointer-events: none; z-index: -3;
+        }
+
+        /* === CON TRỎ CHUỘT === */
+        #cursor-dot, #cursor-ring {
+            position: fixed; top: 0; left: 0; transform: translate(-50%, -50%);
+            border-radius: 50%; pointer-events: none; z-index: 999999;
+        }
+        #cursor-dot { width: 6px; height: 6px; background: var(--white); box-shadow: 0 0 10px var(--white); }
+        #cursor-ring { width: 34px; height: 34px; border: 1px solid rgba(255, 255, 255, 0.5); transition: width 0.1s, height 0.1s; }
+        #fire-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 999998; }
+        .hovering-element #cursor-ring { width: 50px; height: 50px; background: rgba(255,255,255,0.05); border-color: var(--white); }
+
+        /* === MAIN SCROLL === */
+        #main-scroll-container { height: 100vh; overflow-y: scroll; scroll-snap-type: y mandatory; }
+        section {
+            height: 100vh; width: 100vw; scroll-snap-align: center;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative; z-index: 10; padding: 2rem;
+        }
+
+        /* =========================================
+           HERO SECTION 
+           ========================================= */
+        #hero { padding: 0; }
+
+        .hero-video-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: -2; 
+            filter: grayscale(100%) contrast(1.2) brightness(0.6); 
+        }
+
+        .hero-overlay {
+            position: absolute; inset: 0; z-index: -1;
+            background: linear-gradient(to top, rgba(3,3,3,1) 0%, rgba(3,3,3,0.2) 50%, rgba(3,3,3,0.8) 100%);
+        }
+
+        /* Đã fix layout tuyệt đối, không bao giờ bị mất menu nữa */
+        .hero-corner-layout {
+            position: absolute; bottom: 5vh; left: 5vw; z-index: 15;
+            display: flex; flex-direction: column; align-items: flex-start; text-align: left;
+        }
+
+        .avatar-wrapper { position: relative; width: 110px; height: 110px; margin-bottom: 25px; }
+        .avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid var(--gray-light); filter: grayscale(100%); transition: 0.5s; }
+        .avatar-wrapper:hover .avatar { filter: grayscale(0%); border-color: var(--white); box-shadow: 0 0 25px rgba(255,255,255,0.5); transform: scale(1.05); }
+        .avatar-ring { position: absolute; inset: -8px; border: 1px dashed var(--gray-light); border-radius: 50%; animation: spin 10s linear infinite; pointer-events: none; }
+
+        h1, h2, h3, .oswald-font { font-family: 'Oswald', sans-serif; text-transform: uppercase; }
+        .text-interact { transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); display: inline-block; cursor: none; position: relative; }
+        .text-interact:hover { transform: scale(1.05) translateX(5px); letter-spacing: 2px; color: var(--white); text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
+
+        .glitch-bw { position: relative; color: var(--white); font-size: clamp(3.5rem, 7vw, 7rem); letter-spacing: 2px; line-height: 1; margin-bottom: 5px;}
+        .glitch-bw::before, .glitch-bw::after { content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.8; z-index: -1; }
+        .glitch-bw::before { left: 2px; text-shadow: -2px 0 #555; animation: glitch-anim-1 2s infinite linear alternate-reverse; }
+        .glitch-bw::after { left: -2px; text-shadow: -2px 0 #fff; animation: glitch-anim-2 3s infinite linear alternate-reverse; }
+
+        .typewriter-box { font-size: 1.2rem; color: var(--gray-light); margin-bottom: 25px; }
+        #typewriter-text { color: var(--white); font-weight: bold; }
+        .cursor-blink { font-weight: bold; color: var(--white); animation: blink 1s step-end infinite; }
+
+        .badges { display: flex; gap: 15px; margin-bottom: 25px; }
+        .badge { color: var(--gray-light); font-size: 1.2rem; transition: 0.3s; }
+        .badge:hover { color: var(--white); text-shadow: 0 0 15px var(--white); transform: scale(1.2); }
+
+        .social-row { display: flex; gap: 15px; }
+        .social-btn {
+            width: 45px; height: 45px; border-radius: 10px; background: rgba(0,0,0,0.5);
+            border: 1px solid var(--gray-dark); display: flex; justify-content: center; align-items: center;
+            font-size: 1.3rem; color: var(--gray-light); transition: 0.4s; backdrop-filter: blur(5px);
+        }
+        .social-btn:hover { border-color: var(--white); color: #000; background: var(--white); box-shadow: 0 0 20px rgba(255,255,255,0.6); transform: translateY(-5px); }
+
+        /* =========================================
+           CÁC SECTION BÊN DƯỚI
+           ========================================= */
+        .section-title { font-size: 3rem; margin-bottom: 50px; color: var(--gray-light); letter-spacing: 5px; }
+        .achievements-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; width: 100%; max-width: 1100px; }
+        .achivement-card { background: var(--card-bg); border: 1px solid var(--gray-dark); border-radius: 12px; padding: 25px; display: flex; align-items: center; gap: 20px; transition: 0.4s; backdrop-filter: blur(10px); }
+        .achivement-card:hover { border-color: var(--white); transform: scale(1.03) translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.8), inset 0 0 15px rgba(255,255,255,0.05); }
+        .achivement-icon { font-size: 2.5rem; color: var(--gray-light); transition: 0.3s; width: 50px; text-align: center; }
+        .achivement-card:hover .achivement-icon { color: var(--white); text-shadow: 0 0 15px var(--white); transform: rotateY(180deg); }
+        .achivement-info h3 { font-size: 1.2rem; color: var(--white); letter-spacing: 1px; margin-bottom: 8px; line-height: 1.4; }
+        .achivement-info p { font-size: 0.85rem; color: var(--gray-light); font-style: italic; }
+
+        /* =========================================
+           TRÌNH PHÁT NHẠC
+           ========================================= */
+        .music-player-card {
+            position: fixed; bottom: 30px; right: 30px; 
+            background: rgba(10, 10, 10, 0.8); border: 1px solid var(--gray-dark);
+            border-radius: 15px; padding: 15px 20px; display: flex; align-items: center; gap: 20px;
+            backdrop-filter: blur(15px); z-index: 99999; transition: 0.4s;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.9);
+        }
+        .music-player-card:hover { border-color: rgba(255,255,255,0.3); box-shadow: 0 0 20px rgba(255,255,255,0.1); }
+        
+        .disc-icon { font-size: 2rem; color: var(--white); animation: spin 4s linear infinite; animation-play-state: paused; }
+        .disc-icon.playing { animation-play-state: running; text-shadow: 0 0 15px var(--white); }
+
+        .player-info { display: flex; flex-direction: column; min-width: 130px; }
+        .song-title { font-size: 0.9rem; color: var(--white); font-weight: bold; margin-bottom: 3px; font-family: 'Oswald', sans-serif; letter-spacing: 1px; }
+        .song-artist { font-size: 0.7rem; color: var(--gray-light); }
+
+        .player-controls { display: flex; align-items: center; gap: 12px; }
+        .ctrl-btn { background: none; border: none; display: flex; justify-content: center; align-items: center; transition: 0.2s; }
+        .ctrl-btn:hover { transform: scale(1.2); filter: drop-shadow(0 0 8px var(--white)); }
+        .svg-icon { fill: var(--gray-light); width: 16px; height: 16px; transition: 0.2s; }
+        .ctrl-btn:hover .svg-icon { fill: var(--white); }
+        .play-btn-main .svg-icon { width: 22px; height: 22px; fill: var(--white); }
+
+        /* === ANIMATIONS === */
+        .reveal { opacity: 0; transform: translateY(80px) scale(0.95); transition: all 1s cubic-bezier(0.25, 1, 0.5, 1); }
+        .reveal.active { opacity: 1; transform: translateY(0) scale(1); }
+        @keyframes pulseText { 0%, 100% { opacity: 1; text-shadow: 0 0 15px var(--white); } 50% { opacity: 0.2; text-shadow: none; } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+        @keyframes glitch-anim-1 { 0% { clip-path: inset(20% 0 80% 0); } 20% { clip-path: inset(60% 0 10% 0); } 40% { clip-path: inset(40% 0 50% 0); } 60% { clip-path: inset(80% 0 5% 0); } 80% { clip-path: inset(10% 0 70% 0); } 100% { clip-path: inset(30% 0 50% 0); } }
+        @keyframes glitch-anim-2 { 0% { clip-path: inset(10% 0 60% 0); } 20% { clip-path: inset(30% 0 20% 0); } 40% { clip-path: inset(70% 0 10% 0); } 60% { clip-path: inset(20% 0 50% 0); } 80% { clip-path: inset(50% 0 30% 0); } 100% { clip-path: inset(5% 0 80% 0); } }
+
+        @media (max-width: 768px) {
+            .hero-corner-layout { margin-left: 20px; margin-bottom: 120px; }
+            .glitch-bw { font-size: 3.5rem; }
+            .music-player-card { bottom: 15px; right: 15px; left: 15px; justify-content: space-between; padding: 10px 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- MÀN HÌNH CHỜ CLICK TO ENTER -->
+    <div id="enter-screen">
+        <span class="blink-text">[ click anywhere to enter ]</span>
+    </div>
+
+    <!-- CANVAS & CURSOR -->
+    <canvas id="fire-canvas"></canvas>
+    <div id="cursor-dot"></div>
+    <div id="cursor-ring"></div>
+
+    <!-- ĐÃ FIX: Chỉ gọi tên file nhạc nằm chung thư mục, KHÔNG dùng C:\ và crossorigin -->
+    <audio id="audio-1" src="vid1.mp3"></audio>
+    <audio id="audio-2" src="vid2.mp3"></audio>
+
+    <!-- MUSIC PLAYER UI -->
+    <div class="music-player-card interactable">
+        <i class="fas fa-compact-disc disc-icon" id="player-disc"></i>
+        <div class="player-info text-interact">
+            <span class="song-title" id="track-name">Babydoll</span>
+            <span class="song-artist" id="track-artist">Dominic Fike</span>
+        </div>
+        <div class="player-controls">
+            <button class="ctrl-btn play-btn-main" id="play-btn">
+                <svg class="svg-icon" id="svg-play" viewBox="0 0 24 24"><polygon points="6,4 20,12 6,20"/></svg>
+                <svg class="svg-icon" id="svg-pause" viewBox="0 0 24 24" style="display:none;"><rect x="5" y="4" width="4" height="16"/><rect x="15" y="4" width="4" height="16"/></svg>
+            </button>
+            <button class="ctrl-btn" id="next-btn" title="Next Song">
+                <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="5,4 15,12 5,20"/><rect x="17" y="4" width="3" height="16"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN SCROLL CONTAINER -->
+    <main id="main-scroll-container">
+
+        <section id="hero" class="reveal">
+            
+            <!-- ĐÃ FIX: Chỉ gọi tên file video nằm chung thư mục -->
+            <video autoplay loop muted playsinline class="hero-video-bg">
+                <source src="vid.mp4" type="video/mp4">
+            </video>
+            <div class="hero-overlay"></div>
+
+            <div class="hero-corner-layout">
+                
+                <div class="avatar-wrapper interactable" id="avatar-trigger">
+                    <div class="avatar-ring"></div>
+                    <img src="https://cdn2.tuoitre.vn/zoom/700_525/471584752817336320/2023/5/14/anh-cat-path-thang-ngot-16357535268451120213008-read-only-16840317156491426949568-0-213-700-1550-crop-1684031860570347928702.png" alt="Profile" class="avatar">
+                </div>
+
+                <h1 class="glitch-bw text-interact" data-text="sarsRS">sarsRS</h1>
+                
+                <div class="typewriter-box text-interact">
+                    <span id="type-prefix">I'm </span><span id="typewriter-text" class="oswald-font"></span><span class="cursor-blink">_</span>
+                </div>
+
+                <div class="badges">
+                    <i class="fas fa-shield-alt badge interactable" title="Secured"></i>
+                    <i class="fas fa-terminal badge interactable" title="Coder"></i>
+                    <i class="fas fa-check-circle badge interactable" title="Verified"></i>
+                </div>
+
+                <div class="social-row">
+    <!-- Thay link Facebook -->
+    <a href="https://www.facebook.com/profile.php?id=61582264751462" class="social-btn interactable" title="Facebook" target="_blank"><i class="fab fa-facebook-f"></i></a>
+    
+    <!-- Thay link Discord (thường là link join server hoặc username) -->
+    <a href="https://discord.com/users/1426570746125221929" class="social-btn interactable" title="Discord" target="_blank"><i class="fab fa-discord"></i></a>
+    
+    <!-- Thay link Github -->
+    <a href="https://github.com/sarsvankelsion" class="social-btn interactable" title="GitHub" target="_blank"><i class="fab fa-github"></i></a>
+    
+    <!-- Thay Email (Sử dụng mailto: để tự động mở ứng dụng gửi mail) -->
+    <a href="mailto:sarsvankelsion.com" class="social-btn interactable" title="Email"><i class="fas fa-envelope"></i></a>
+</div>
+
+            </div>
+        </section>
+
+        <!-- SECTION 2: THÀNH TỰU -->
+        <section id="achievements" class="reveal">
+            <h2 class="section-title text-interact">ACHIEVEMENTS</h2>
+            <div class="achievements-grid">
+                
+                <div class="achivement-card interactable">
+                    <i class="fas fa-trophy achivement-icon"></i>
+                    <div class="achivement-info text-interact">
+                        <h3 class="oswald-font">GIẢI NHẤT TRƯỜNG & XÃ<br>GIẢI 3 TỈNH</h3>
+                        <p>// Từng bước chinh phục đỉnh cao thuật toán.</p>
+                    </div>
+                </div>
+
+                <div class="achivement-card interactable">
+                    <i class="fas fa-chart-line achivement-icon"></i>
+                    <div class="achivement-info text-interact">
+                        <h3 class="oswald-font">5/10 ĐIỂM THI THỬ<br>CHUYÊN VĨNH PHÚC</h3>
+                        <p>// Khởi đầu gian nan, nhưng không bao giờ lùi bước.</p>
+                    </div>
+                </div>
+
+                <div class="achivement-card interactable">
+                    <i class="fas fa-medal achivement-icon"></i>
+                    <div class="achivement-info text-interact">
+                        <h3 class="oswald-font">GIẢI 3 TIN HỌC TRẺ</h3>
+                        <p>// Khẳng định đam mê lập trình từ những ngày đầu.</p>
+                    </div>
+                </div>
+
+                <div class="achivement-card interactable">
+                    <i class="fas fa-headphones-alt achivement-icon"></i>
+                    <div class="achivement-info text-interact">
+                        <h3 class="oswald-font">VIBE CODER</h3>
+                        <p>// Gõ code xuyên màn đêm cùng Lo-fi, Piano & Coffee.</p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            /* === 0. MÀN HÌNH CHỜ (CLICK TO ENTER) === */
+            const enterScreen = document.getElementById('enter-screen');
+            let isEntered = false;
+
+            enterScreen.addEventListener('click', () => {
+                if(isEntered) return;
+                isEntered = true;
+                
+                // Ẩn màn hình chờ bằng CSS inline để đảm bảo ăn 100%
+                enterScreen.style.opacity = '0';
+                enterScreen.style.visibility = 'hidden';
+                enterScreen.style.pointerEvents = 'none';
+                
+                // Hiển thị phần tử đầu tiên 
+                document.getElementById('hero').classList.add('active');
+
+                // Tự động Play nhạc
+                playCurrent();
+
+                // Bắt đầu hiệu ứng gõ chữ
+                setTimeout(type, 500); 
+            });
+
+            /* === 1. TYPEWRITER EFFECT === */
+            const phrases = ["a Developer", "a Seller", "a VibeCoder"];
+            let phraseIndex = 0, letterIndex = 0;
+            let currentText = "", isDeleting = false;
+            const typewriterEl = document.getElementById("typewriter-text");
+            
+            function type() {
+                const fullPhrase = phrases[phraseIndex];
+                if (isDeleting) {
+                    currentText = fullPhrase.substring(0, letterIndex - 1);
+                    letterIndex--;
+                } else {
+                    currentText = fullPhrase.substring(0, letterIndex + 1);
+                    letterIndex++;
+                }
+
+                typewriterEl.textContent = currentText;
+                let typingSpeed = 80;
+                if (isDeleting) typingSpeed /= 2;
+
+                if (!isDeleting && currentText === fullPhrase) {
+                    typingSpeed = 2000;
+                    isDeleting = true;
+                } else if (isDeleting && currentText === "") {
+                    isDeleting = false;
+                    phraseIndex = (phraseIndex + 1) % phrases.length;
+                    typingSpeed = 500; 
+                }
+                setTimeout(type, typingSpeed);
+            }
+
+            /* === 2. CON TRỎ CHUỘT & CANVAS === */
+            const cDot = document.getElementById('cursor-dot');
+            const cRing = document.getElementById('cursor-ring');
+            let mx = window.innerWidth/2, my = window.innerHeight/2;
+            let rx = mx, ry = my;
+
+            const interactables = document.querySelectorAll('.interactable, a, button, .text-interact, #enter-screen');
+            interactables.forEach(el => {
+                el.addEventListener('mouseenter', () => document.body.classList.add('hovering-element'));
+                el.addEventListener('mouseleave', () => document.body.classList.remove('hovering-element'));
+            });
+
+            document.addEventListener('mousemove', e => { 
+                mx = e.clientX; my = e.clientY; 
+                cDot.style.left = mx + 'px'; cDot.style.top = my + 'px';
+            });
+            document.addEventListener('mousedown', () => { cRing.style.width = '20px'; cRing.style.height = '20px'; });
+            document.addEventListener('mouseup', () => { cRing.style.width = '34px'; cRing.style.height = '34px'; });
+
+            function lerp(a, b, t) { return a + (b - a) * t; }
+
+            const fireCanvas = document.getElementById('fire-canvas');
+            const fCtx = fireCanvas.getContext('2d');
+            fireCanvas.width = window.innerWidth; fireCanvas.height = window.innerHeight;
+            window.addEventListener('resize', () => { fireCanvas.width = window.innerWidth; fireCanvas.height = window.innerHeight; });
+
+            const fireParticles =[];
+            class FireParticle {
+                constructor(x, y) {
+                    this.x = x; this.y = y;
+                    this.vx = (Math.random() - 0.5) * 1.5;
+                    this.vy = (Math.random() - 0.5) * 1.5;
+                    this.life = 1; this.decay = Math.random() * 0.03 + 0.02;
+                    this.size = Math.random() * 2 + 1;
+                    this.color = Math.random() > 0.5 ? '255, 255, 255' : '150, 150, 150';
+                }
+                update() { this.x += this.vx; this.y += this.vy; this.life -= this.decay; this.size *= 0.95; }
+                draw(ctx) {
+                    ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(${this.color}, ${this.life})`; ctx.fill();
+                }
+            }
+
+            let lastMx = mx, lastMy = my;
+            function animateCursor() {
+                rx = lerp(rx, mx, 0.15); ry = lerp(ry, my, 0.15);
+                cRing.style.left = rx + 'px'; cRing.style.top = ry + 'px';
+
+                fCtx.clearRect(0, 0, fireCanvas.width, fireCanvas.height);
+                const speed = Math.sqrt((mx - lastMx)**2 + (my - lastMy)**2);
+                if (speed > 1) fireParticles.push(new FireParticle(mx, my));
+                lastMx = mx; lastMy = my;
+
+                for (let i = fireParticles.length - 1; i >= 0; i--) {
+                    fireParticles[i].update(); fireParticles[i].draw(fCtx);
+                    if (fireParticles[i].life <= 0) fireParticles.splice(i, 1);
+                }
+                requestAnimationFrame(animateCursor);
+            }
+            animateCursor();
+
+            /* === 3. SCROLL REVEAL === */
+            const mainScroll = document.getElementById('main-scroll-container');
+            const reveals = document.querySelectorAll('.reveal');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) entry.target.classList.add('active');
+                });
+            }, { root: mainScroll, threshold: 0.3 });
+            reveals.forEach(sec => observer.observe(sec));
+
+            /* === 4. MUSIC PLAYER LOGIC === */
+            const audio1 = document.getElementById('audio-1');
+            const audio2 = document.getElementById('audio-2');
+            const playBtn = document.getElementById('play-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const svgPlay = document.getElementById('svg-play');
+            const svgPause = document.getElementById('svg-pause');
+            const trackName = document.getElementById('track-name');
+            const trackArtist = document.getElementById('track-artist');
+            const discIcon = document.getElementById('player-disc');
+
+            let isPlaying = false;
+            let currentTrack = 1;
+
+            const tracksInfo = {
+                1: { title: "Babydoll", artist: "Dominic Fike" },
+                2: { title: "Đầu đường xó chợ", artist: "Obito" }
+            };
+
+            // Tránh lỗi null nếu file nhạc bị lỗi
+            if(audio1) audio1.addEventListener('ended', playNext);
+            if(audio2) audio2.addEventListener('ended', playNext);
+
+            function playNext() {
+                currentTrack = currentTrack === 1 ? 2 : 1;
+                playCurrent();
+            }
+
+            function playCurrent() {
+                let activeAudio = currentTrack === 1 ? audio1 : audio2;
+                if(activeAudio) {
+                    if(audio1) { audio1.pause(); audio1.currentTime = 0; }
+                    if(audio2) { audio2.pause(); audio2.currentTime = 0; }
+                    
+                    activeAudio.play().catch(e => console.log("Lỗi file nhạc: Hãy kiểm tra file có nằm cùng thư mục không!"));
+                }
+                
+                trackName.innerText = tracksInfo[currentTrack].title;
+                trackArtist.innerText = tracksInfo[currentTrack].artist;
+                
+                svgPlay.style.display = 'none';
+                svgPause.style.display = 'block';
+                discIcon.classList.add('playing');
+                isPlaying = true;
+            }
+
+            playBtn.addEventListener('click', () => {
+                if(isPlaying) {
+                    if(currentTrack === 1 && audio1) audio1.pause(); 
+                    if(currentTrack === 2 && audio2) audio2.pause();
+                    svgPlay.style.display = 'block';
+                    svgPause.style.display = 'none';
+                    discIcon.classList.remove('playing');
+                    isPlaying = false;
+                } else {
+                    playCurrent();
+                }
+            });
+
+            nextBtn.addEventListener('click', () => playNext());
+        });
+    </script>
+</body>
+</html>
